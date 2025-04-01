@@ -1,10 +1,37 @@
 import pandas as pd
 import urllib.request
 import zipfile
+import xgboost as xgb
 from sklearn import base, pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder 
 from feature_engine import encoding, imputation
+from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+from sklearn.metrics import accuracy_score, roc_auc_score
+from typing import Any, Dict, Union
+
+def hyperparameter_tuning(space: Dict[str, Union[float, int]],
+X_train: pd.DataFrame, y_train: pd.Series,
+X_test: pd.DataFrame, y_test: pd.Series,
+early_stopping_rounds: int=50,
+metric:callable=accuracy_score)-> Dict[str, Any]:
+    
+    int_vals = ['max_depth', 'reg_alpha']
+    space = {k: (int(val) if k in int_vals else val)
+             for k,val in space.items()}
+    
+    space['early_stopping_rounds'] = early_stopping_rounds
+    model = xgb.XGBClassifier(**space)
+    evaluation = [(X_train, y_train),
+    (X_test, y_test)]
+    model.fit(X_train, y_train,
+    eval_set=evaluation,
+    verbose=False)
+
+    pred = model.predict(X_test)
+    score = metric(y_test, pred)
+
+    return {'loss':-score, 'status': STATUS_OK, 'model': model}
 
 def extract_zip(src, dst, member_name):
     url = src
